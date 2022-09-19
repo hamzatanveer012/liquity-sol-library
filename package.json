@@ -1,0 +1,24 @@
+{
+  "name": "solana-liquity",
+  "version": "1.0.0",
+  "description": "an instruction library for solana liquity",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "start": "nodemon -e ts -x tsc"
+  },
+  "author": "Muhammad Hamza",
+  "license": "ISC",
+  "dependencies": {
+    "@solana/spl-token": "^0.2.0",
+    "@solana/web3.js": "^1.44.3",
+    "axios": "^0.27.2",
+    "lodash": "^4.17.21",
+    "nodemon": "^2.0.19"
+  },
+  "devDependencies": {
+    "ts-node": "^10.8.1",
+    "typescript": "^4.7.4"
+  }
+}
