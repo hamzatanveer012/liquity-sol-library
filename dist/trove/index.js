@@ -102,10 +102,7 @@ class Trove extends web3Service_1.Web3Service {
             const accounts = yield this.connection.getProgramAccounts(config_1.TROVE_PROGRAM_KEY, { filters });
             const solanaPrice = yield (0, utils_1.getSolanaPriceInUSD)();
             const tokenPrice = yield (0, utils_1.getTokenPriceInUSD)();
-            return accounts.map((account) => ({
-                accountPubkey: account.pubkey,
-                ownerPubkey: __classPrivateFieldGet(this, _Trove_serializeTroveData, "f").call(this, account.pubkey, account.account.data, solanaPrice, tokenPrice).owner
-            }));
+            return accounts.map((account) => (Object.assign(Object.assign({}, __classPrivateFieldGet(this, _Trove_serializeTroveData, "f").call(this, account.pubkey, account.account.data, solanaPrice, tokenPrice)), { accountPubkey: account.pubkey, ownerPubkey: __classPrivateFieldGet(this, _Trove_serializeTroveData, "f").call(this, account.pubkey, account.account.data, solanaPrice, tokenPrice).owner })));
         }));
         this.createOrUpdateTrove = (clientKey, collateral, dept) => __awaiter(this, void 0, void 0, function* () {
             if (collateral <= 0) {
@@ -143,6 +140,11 @@ class Trove extends web3Service_1.Web3Service {
                 throw new Error('Total Dept is less than Minimum Total Dept of ' + config_1.MINIMUM_TOTAL_DEPT);
             }
             const solanaPrice = yield (0, utils_1.getSolanaPriceInUSD)();
+            let allTroves = yield this.getAllTrove();
+            let tcr = this.calculate_tcr(allTroves.filter(x => x.owner.toBase58() != clientKey.toBase58()), solanaPrice);
+            if ((((tcr.tcr_collateral + (collateral * solanaPrice)) / (tcr.tcr_borrow + totalDept))) * 100 < 150) {
+                throw new Error("Trove collateral ratio is insufficient, It shouldnt cause TCR below 150");
+            }
             const tokenPrice = yield (0, utils_1.getTokenPriceInUSD)();
             const collateral_ratio_percent = ((collateral * solanaPrice) / (totalDept * tokenPrice)) * 100;
             if (collateral_ratio_percent < config_1.MINIMUM_COLLATERAL_RATIO) {
@@ -271,8 +273,9 @@ class Trove extends web3Service_1.Web3Service {
         });
         _Trove_createTrove.set(this, (clientKey, collateral, dept) => __awaiter(this, void 0, void 0, function* () {
             let troveDataAccount = web3_js_1.Keypair.generate();
+            let allTroves = yield __classPrivateFieldGet(this, _Trove_getAllTrovesCreator, "f").call(this);
             const clientTokenAccountKey = yield (0, utils_1.getOrCreateTokenAccount)(this.connection, this.provider, clientKey);
-            const transaction = new web3_js_1.Transaction().add(__classPrivateFieldGet(this, _Trove_troveCreateInstruction, "f").call(this, clientKey, clientTokenAccountKey, collateral, dept, troveDataAccount.publicKey));
+            const transaction = new web3_js_1.Transaction().add(__classPrivateFieldGet(this, _Trove_troveCreateInstruction, "f").call(this, clientKey, clientTokenAccountKey, collateral, dept, troveDataAccount.publicKey, allTroves));
             transaction.feePayer = clientKey;
             let hash = yield this.connection.getLatestBlockhash();
             transaction.recentBlockhash = hash.blockhash;
@@ -281,31 +284,27 @@ class Trove extends web3Service_1.Web3Service {
         }));
         _Trove_updateTrove.set(this, (clientKey, collateral, dept, troveDataAccountKey) => __awaiter(this, void 0, void 0, function* () {
             const clientTokenAccountKey = yield (0, utils_1.getOrCreateTokenAccount)(this.connection, this.provider, clientKey);
-            const transaction = new web3_js_1.Transaction().add(__classPrivateFieldGet(this, _Trove_troveUpdateInstruction, "f").call(this, clientKey, clientTokenAccountKey, collateral, dept, troveDataAccountKey));
+            let allTroves = yield __classPrivateFieldGet(this, _Trove_getAllTrovesCreator, "f").call(this);
+            const transaction = new web3_js_1.Transaction().add(__classPrivateFieldGet(this, _Trove_troveUpdateInstruction, "f").call(this, clientKey, clientTokenAccountKey, collateral, dept, troveDataAccountKey, allTroves));
             transaction.feePayer = clientKey;
             let hash = yield this.connection.getLatestBlockhash();
             transaction.recentBlockhash = hash.blockhash;
             return yield __classPrivateFieldGet(this, _Trove_signAndSendTransaction, "f").call(this, transaction);
         }));
-        this.mint = (clientKey, clientTokenAccountKey) => __awaiter(this, void 0, void 0, function* () {
-            const transaction = new web3_js_1.Transaction().add(new web3_js_1.TransactionInstruction({
-                keys: [
-                    { pubkey: clientKey, isSigner: true, isWritable: true },
-                    { pubkey: config_1.TROVE_PROGRAM_PDA_KEY, isSigner: false, isWritable: true },
-                    { pubkey: clientTokenAccountKey, isSigner: false, isWritable: true },
-                    { pubkey: config_1.TROVE_PROGRAM_PDA_TOKEN_ACCOUNT_KEY, isSigner: false, isWritable: true },
-                    { pubkey: config_1.MINT_KEY, isSigner: false, isWritable: true },
-                    { pubkey: spl_token_1.TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-                ],
-                data: buffer_1.Buffer.concat([]),
-                programId: PROGRAM_KEY,
-            }));
-            transaction.feePayer = clientKey;
-            let hash = yield this.connection.getLatestBlockhash();
-            transaction.recentBlockhash = hash.blockhash;
-            return yield __classPrivateFieldGet(this, _Trove_signAndSendTransaction, "f").call(this, transaction);
-        });
-        _Trove_troveCreateInstruction.set(this, (clientKey, clientTokenAccountKey, collateral, dept, troveDataAccountKey) => {
+        this.calculate_tcr = (total_troves, solana_price) => {
+            let total_collateral = 0.0;
+            let total_borrow = 0.0;
+            let tcr_values = total_troves.reduce((acc, i) => {
+                acc.tcr_collateral += i.collateral * solana_price;
+                acc.tcr_borrow += i.totalDept;
+                return acc;
+            }, {
+                tcr_collateral: 0.0,
+                tcr_borrow: 0.0,
+            });
+            return tcr_values;
+        };
+        _Trove_troveCreateInstruction.set(this, (clientKey, clientTokenAccountKey, collateral, dept, troveDataAccountKey, allTroves) => {
             let data = buffer_1.Buffer.alloc(models_1.TroveModel.span);
             models_1.TroveModel.encode({
                 owner: clientKey.toBuffer(),
@@ -327,12 +326,13 @@ class Trove extends web3Service_1.Web3Service {
                     { pubkey: web3_js_1.SystemProgram.programId, isSigner: false, isWritable: false },
                     { pubkey: spl_token_1.TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
                     { pubkey: web3_js_1.SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+                    ...allTroves.map(pool => ({ pubkey: pool.accountPubkey, isSigner: false, isWritable: true })),
                 ],
                 data: buffer_1.Buffer.concat([constants_1.TROVE_CREATE_INSTRUCTION, data]),
                 programId: config_1.TROVE_PROGRAM_KEY,
             });
         });
-        _Trove_troveUpdateInstruction.set(this, (clientKey, clientTokenAccountKey, collateral, dept, troveDataAccountKey) => {
+        _Trove_troveUpdateInstruction.set(this, (clientKey, clientTokenAccountKey, collateral, dept, troveDataAccountKey, allTroves) => {
             let data = buffer_1.Buffer.alloc(models_1.TroveModel.span);
             models_1.TroveModel.encode({
                 owner: clientKey.toBuffer(),
@@ -354,6 +354,7 @@ class Trove extends web3Service_1.Web3Service {
                     { pubkey: web3_js_1.SystemProgram.programId, isSigner: false, isWritable: false },
                     { pubkey: spl_token_1.TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
                     { pubkey: web3_js_1.SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },
+                    ...allTroves.filter(x => x.accountPubkey != troveDataAccountKey).map(pool => ({ pubkey: pool.accountPubkey, isSigner: false, isWritable: true })),
                 ],
                 data: buffer_1.Buffer.concat([constants_1.TROVE_UPDATE_INSTRUCTION, data]),
                 programId: config_1.TROVE_PROGRAM_KEY,
