@@ -33,15 +33,16 @@ export const SOLANA_PRICE_ACCOUNT_MAINNET = new PublicKey("H6ARHf6YXhGYeQfUzQNGk
 
 // Decimal Precision Configuration
 export const COLLATERAL_DECIMAL = 4;
-export const DEPT_DECIMAL = 2;
-export const TOTAL_DEPT_DECIMAL = 2;
+export const DEPT_DECIMAL = 4;
+export const TOTAL_DEPT_DECIMAL = 4;
 export const COLLATERAL_RATIO_DECIMAL = 0;
 export const LIQUIDATION_RESERVE_DECIMAL = 0;
-export const BORROWING_FEE_DECIMAL = 2;
-export const DEPOSIT_DECIMAL = 2;
-export const STAKE_DECIMAL = 2;
+export const BORROWING_FEE_DECIMAL = 4;
+export const DEPOSIT_DECIMAL = 4;
+export const STAKE_DECIMAL = 4;
 export const POOL_SHARE_DECIMAL = 6;
-export const REDEEM_DECIMAL = 2;
+export const REDEEM_DECIMAL = 4;
+export const PRECISION = 4;
 
 // Platform Configuration
 export const MINIMUM_COLLATERAL_RATIO = 110; // 110%

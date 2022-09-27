@@ -17,7 +17,7 @@ import {
     LIQUIDATION_RESERVE_DECIMAL,
     MINIMUM_COLLATERAL_RATIO,
     MINIMUM_TOTAL_DEPT,
-    MINT_KEY, RECOVERY_MODE_ACCOUNT, REDEMPTION_FEE_ADDON,
+    MINT_KEY, PRECISION, RECOVERY_MODE_ACCOUNT, REDEMPTION_FEE_ADDON,
     SOLANA_PRICE_ACCOUNT_DEVNET,
     STABILITY_POOL_PROGRAM_KEY, STABILITY_POOL_PROGRAM_PDA_KEY,
     STABILITY_POOL_PROGRAM_PDA_TOKEN_ACCOUNT_KEY,
@@ -48,7 +48,7 @@ export class Trove extends Web3Service {
 
     getTokenSupply = async ()=>{
         let mint=await getMint(this.connection,MINT_KEY)
-        return (parseInt(mint.supply.toString())/DECIMALS).toFixed(2)
+        return (parseInt(mint.supply.toString())/DECIMALS).toFixed(PRECISION)
     }
     getMiminumCollateralRatioForBorrowing = async ()=>{
         let recovery_mode=await this.getRecoveryMode()
