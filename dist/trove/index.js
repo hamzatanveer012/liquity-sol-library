@@ -31,7 +31,7 @@ class Trove extends web3Service_1.Web3Service {
         super(...arguments);
         this.getTokenSupply = () => __awaiter(this, void 0, void 0, function* () {
             let mint = yield (0, spl_token_1.getMint)(this.connection, config_1.MINT_KEY);
-            return (parseInt(mint.supply.toString()) / config_1.DECIMALS).toFixed(2);
+            return (parseInt(mint.supply.toString()) / config_1.DECIMALS).toFixed(config_1.PRECISION);
         });
         this.getMiminumCollateralRatioForBorrowing = () => __awaiter(this, void 0, void 0, function* () {
             let recovery_mode = yield this.getRecoveryMode();
